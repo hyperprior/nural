@@ -5,4 +5,5 @@
   license: "MIT"
   authors: ["hyperprior"]
   type: module
+  path: "./nural.nuon"
 }

@@ -38,6 +38,7 @@
             pkg-config
             nushell
             git
+            mask
           ];
 
           env = {
