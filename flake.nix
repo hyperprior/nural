@@ -71,11 +71,8 @@
               echo "✅ nutest already cloned"
             fi
 
-            echo "📥 Installing nupm and nutest into current NuShell scope..."
-            echo 'use nupm/nupm; nupm install nupm --force --path; nupm install nutest --path' > .nupm-init.nu
-
-            chmod +x '.nupm-init.nu'
-
+            echo "📥 Installing nutest with nupm..."
+            ${pkgs.nushell}/bin/nu -c 'use nupm/nupm; nupm install nutest --force --path'
             exec ${pkgs.nushell}/bin/nu
           '';
         };
