@@ -13,8 +13,8 @@ nupm install --path . --force
 
 > run nutest
 
-~~~nu
+```nu
 use nutest/nutest
 use nural
 nutest run-tests --path tests
-~~~
+```
