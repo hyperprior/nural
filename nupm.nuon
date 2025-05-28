@@ -1,0 +1,8 @@
+{
+  name: nural
+  description: "a tiny neural network framework"
+  version: "0.1.0"
+  license: "MIT"
+  authors: ["hyperprior"]
+  type: module
+}
