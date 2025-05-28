@@ -1,69 +1,84 @@
 {
-  description = "development shell for nural";
+  description = "devshell for nural";
 
   inputs = {
-    nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = inputs: let
-    supportedSystems = ["x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin"];
-    forEachSupportedSystem = f:
-      inputs.nixpkgs.lib.genAttrs supportedSystems (system:
-        f {
-          pkgs = import inputs.nixpkgs {
-            inherit system;
-            overlays = [
-              inputs.rust-overlay.overlays.default
-              inputs.self.overlays.default
-            ];
-          };
-        });
-  in {
-    overlays.default = final: prev: {
-      rustToolchain = let
-        rust = prev.rust-bin;
-      in
-        if builtins.pathExists ./rust-toolchain.toml
-        then rust.fromRustupToolchainFile ./rust-toolchain.toml
-        else if builtins.pathExists ./rust-toolchain
-        then rust.fromRustupToolchainFile ./rust-toolchain
-        else
-          rust.stable.latest.default.override {
-            extensions = ["rust-src" "rustfmt"];
-          };
-    };
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    rust-overlay,
+  }:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
+        overlays = [rust-overlay.overlays.default];
+        pkgs = import nixpkgs {inherit system overlays;};
 
-    devShells = forEachSupportedSystem ({pkgs}: {
-      default = pkgs.mkShellNoCC {
-        name = "nural-dev-shell";
-        shell = "${pkgs.nushell}/bin/nu";
-
-        # Optional: make nushell available in PATH too
-        buildInputs = [pkgs.nushell];
-
-        packages = with pkgs; [
-          rustToolchain
-          openssl
-          pkg-config
-          cargo-deny
-          cargo-edit
-          cargo-watch
-          rust-analyzer
-          mask
-        ];
-
-        env = {
-          RUST_SRC_PATH = "${pkgs.rustToolchain}/lib/rustlib/src/rust/library";
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+          extensions = ["rust-src" "rustfmt" "clippy"];
         };
+      in {
+        devShells.default = pkgs.mkShellNoCC {
+          name = "nural-dev-shell";
+          shell = "${pkgs.nushell}/bin/nu";
 
-        shellHook = ''
-          exec ${pkgs.nushell}/bin/nu
-        '';
-      };
-    });
-  };
+          buildInputs = with pkgs; [
+            rustToolchain
+            cargo
+            cargo-binstall
+            cargo-edit
+            openssl
+            pkg-config
+            nushell
+            git
+          ];
+
+          env = {
+            RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
+          };
+
+          shellHook = ''
+            echo "🔧 Initializing NuShell module dev environment..."
+
+            if [ ! -d nupm ]; then
+              echo "📦 Cloning nupm..."
+              git clone https://github.com/nushell/nupm.git
+              cd nupm
+              latest_tag=$(git tag --sort=-version:refname | head -n1)
+              echo "🔖 Checking out nupm tag $latest_tag"
+              git checkout "$latest_tag"
+              cd ..
+            else
+              echo "✅ nupm already cloned"
+            fi
+
+            if [ ! -d nutest ]; then
+              echo "📦 Cloning nutest..."
+              git clone https://github.com/vyadh/nutest.git
+              cd nutest
+              latest_tag=$(git tag --sort=-version:refname | head -n1)
+              echo "🔖 Checking out nutest tag $latest_tag"
+              git checkout "$latest_tag"
+              cd ..
+            else
+              echo "✅ nutest already cloned"
+            fi
+
+            echo "📥 Installing nupm and nutest into current NuShell scope..."
+            echo 'use nupm/nupm; nupm install nupm --force --path; nupm install nutest --path' > .nupm-init.nu
+
+            chmod +x '.nupm-init.nu'
+
+            exec ${pkgs.nushell}/bin/nu
+          '';
+        };
+      }
+    );
 }
